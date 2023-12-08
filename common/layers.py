@@ -134,3 +134,66 @@ class Affine:
 
         dx = dx.reshape(*self.original_x_shape)
         return dx
+    
+class SoftmaxWithLoss:
+    """
+    The SoftmaxWithLoss class handles softmax and cross-entropy loss, providing method for forward and backward passes.
+
+    Attributes:
+        loss (float): Current loss value.
+        y (numpy.ndarray): Output of the softmax.
+        t (numpy.ndarray): Ground truth labels.
+
+    Methods:
+        forward(x, t):
+        Computes softmax and loss for the given input x and ground truth labels t, returning the loss.
+
+        backward(dout=1):
+            Performs backward propagation to compute gradients with respect to the input and returns them.
+
+    Examples:
+        softmax_loss = SoftmaxWithLoss()
+        x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        t = np.array([0, 1]) # Ground truth labels
+        loss = softmax_loss.forward(x, t)
+        gradient = softmax_loss.backward()
+    """
+    def __init__(self):
+        self.loss = None
+        self.y = None
+        self.t = None
+
+    def forward(self, x: np.ndarray, t: np.ndarray) -> float:
+        """Computes softmax and loss for the given input x and ground truth labels t, returning the loss.
+
+        Args:
+            x (numpy.ndarray): Input data.
+            t (numpy.ndarray): Ground truth labels
+
+        Returns:
+            float: Computed loss value.
+        """
+        self.t = t
+        self.y = softmax(x)
+        self.loss = cross_entropy_error(self.y, self.t)
+
+        return self.loss
+    
+    def backward(self, dout: float=1) -> np.ndarray:
+        """Performs backward propagation to compute gradients with respect to the input and returns them.
+
+        Args:
+            dout (float, optional): Gradient passed from the upper layer during backpropation. Defaults to 1.
+
+        Returns:
+            numpy.ndarray: Gradients with respect to the input.
+        """
+        batch_size = self.t.shape[0]
+        if self.t.size == self.y.size:
+            dx = (self.y - self.t) / batch_size
+        else:
+            dx = self.y.copy()
+            dx[np.arange(batch_size), self.t] -= 1
+            dx = dx / batch_size
+
+        return dx
