@@ -54,7 +54,7 @@ class Momentum:
             grads (dict): Dictionary of gradients corresponding to each parameter.
         """
         if self.v is None:
-            self.v = {key: np.zeros_like(val) for ke, val in params.items()}
+            self.v = {key: np.zeros_like(val) for key, val in params.items()}
 
         for key, val in params.items():
             v = self.v[key]
@@ -205,6 +205,6 @@ class Adam:
         for key in params.keys():
             m, v, grad = self.m[key], self.v[key], grads[key]
             m += (1 - self.beta1) * (grad - m)
-            v += (1 - self.beta2) * (grad**2, v)
+            v += (1 - self.beta2) * (grad**2 - v)
             params[key] -= lr_t * m / (np.sqrt(v) + 1e-7)
             self.m[key], self.v[key] = m, v
