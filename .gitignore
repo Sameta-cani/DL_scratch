@@ -21,6 +21,7 @@ fashion_dataset/*.gz
 Project/test file
 *.zip
 total_result.xlsx
+*.hwpx
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
