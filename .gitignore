@@ -17,6 +17,10 @@
 ch03/sample_weight.pkl
 dataset/*.gz
 dataset/mnist.pkl
+fashion_dataset/*.gz
+Project/test file
+*.zip
+total_result.xlsx
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

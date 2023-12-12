@@ -74,6 +74,9 @@ def relu_grad(x: np.ndarray) -> np.ndarray:
     """
     return np.where(x >= 0, 1, 0)
 
+def selu(x, alpha=1.67326, scale=1.0507):
+    return scale * np.where(x > 0, x, alpha * (np.exp(x) - 1))
+
 
 def softmax(x: np.ndarray) -> np.ndarray:
     """Compute the softmax function for the input array.

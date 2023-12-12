@@ -208,3 +208,66 @@ class Adam:
             v += (1 - self.beta2) * (grad**2 - v)
             params[key] -= lr_t * m / (np.sqrt(v) + 1e-7)
             self.m[key], self.v[key] = m, v
+
+class Nadam:
+    """Nadam optimizer for neural network parameter updates.
+
+    Nadam is an optimizer that combines the benefits of Nesterov Accelerated Gradient (NAG) and Adam.
+
+    Attributes:
+        lr (float): The learning rate.
+        beta1 (float): Exponential decay rate for the first moment estimate.
+        beta2 (float): Exponential decay rate for the second raw moment estimate.
+        iter (int): The current iteration count.
+        m (dict): First moment estimate for each parameter.
+        v (dict): Second raw moment estimate for each parameter.
+    """
+    def __init__(self, lr: float=0.001, beta1: float=0.9, beta2: float=0.999):
+        """Initializes the optimizer with specified learning rate and moment decay rates.
+
+        Args:
+            lr (float, optional): The learning rate. Defaults to 0.001.
+            beta1 (float, optional): Exponential decay rate for the first moment estimate. Defaults to 0.9.
+            beta2 (float, optional): Exponential decay rate for the second raw moment estimate. Defaults to 0.999.
+        """
+        self.lr = lr
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.iter = 0
+        self.m = None
+        self.v = None
+
+    def update(self, params: dict, grads: dict):
+        """Update the parameters using the Nadam optimization algorithm.
+
+        Args:
+            params (dict): Dictionary of parameters to be updated.
+            grads (dict): Dictionary of gradients for each parameter.
+
+        Returns:
+            None
+        """
+        if self.m is None:
+            self.m, self.v = {}, {}
+            for key, val in params.items():
+                self.m[key] = np.zeros_like(val)
+                self.v[key] = np.zeros_like(val)
+
+        self.iter += 1
+        lr_t = self.lr * np.sqrt(1.0 - self.beta2**self.iter) / (1.0 - self.beta1**self.iter)
+
+        for key in params.keys():
+            # Update biased first moment estimate
+            self.m[key] = self.beta1 * self.m[key] + (1 - self.beta1) * grads[key]
+
+            # Update biased second raw moment estimate
+            self.v[key] = self.beta2 * self.v[key] + (1 - self.beta2) * grads[key]**2
+
+            # Compute the corrected first moment
+            m_hat = self.m[key] / (1.0 - self.beta1**self.iter)
+
+            # Compute the term taking into account the correction from the second moment estimate
+            v_hat = self.v[key] / (1.0 - self.beta2**self.iter)
+
+            # Update parameters
+            params[key] -= lr_t * m_hat / (np.sqrt(v_hat) + 1e-7)
