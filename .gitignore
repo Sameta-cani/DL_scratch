@@ -22,6 +22,7 @@ Project/test file
 *.zip
 total_result.xlsx
 *.hwpx
+ch07/params.pkl
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

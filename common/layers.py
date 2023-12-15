@@ -2,6 +2,7 @@ import numpy as np
 import sys, os
 sys.path.append(os.pardir)
 from common.functions import *
+from common.util import im2col, col2im
 
 class Relu:
     """Rectified Linear Unit (ReLU) activation function for neural networks.
@@ -518,4 +519,144 @@ class BatchNormalization:
         self.dgamma = dgamma
         self.dbeta = dbeta
         
+        return dx
+    
+
+class Convolution:
+    def __init__(self, W: np.ndarray, b: np.ndarray, stride: int=1, pad: int=0):
+        """Initialize a convolutional layer with learnable parameters.
+
+        Args:
+            W (numpy.ndarray): Weight parameters for the convolutional layer of shape (FN, C, FH, FW),
+            where FN is the number of filters, C is the number of channels,
+            FH is the filter height, and FW is the filter width.
+            b (numpy.ndarray): Bias parameters for the convolutional layer of shape (FN,).
+            stride (int, optional): Stride value for filter movement. Defaults to 1.
+            pad (int, optional): Padding value for input data. Defaults to 0.
+        """
+        self.W = W
+        self.b = b
+        self.stride = stride
+        self.pad = pad
+
+        # Intermediate data (using during backward pass)
+        self.x = None
+        self.col = None
+        self.col_W = None
+
+        # Gradients for weights and biases
+        self.dW = None
+        self.db = None
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """Perform the forward pass of the convolutional layer.
+
+        Args:
+            x (numpy.ndarray): Input data of shape (N, C, H, W), where N is the batch size,
+                               C is the number of channels, H is the height, and W is the width.
+
+        Returns:
+            numpy.ndarray: Output of the convolutional layer after the forward pass.
+        """
+        FN, C, FH, FW = self.W.shape
+        N, C, H, W = x.shape
+        out_h = 1 + int((H + 2*self.pad - FH) / self.stride)
+        out_w = 1 + int((W + 2*self.pad - FW) / self.stride)
+
+        col = im2col(x, FH, FW, self.stride, self.pad)
+        col_W = self.W.reshape(FN, -1).T
+
+        out = np.dot(col, col_W) + self.b
+        out = out.reshape(N, out_h, out_w, -1).transpose(0, 3, 1, 2)
+
+        self.x = x
+        self.col = col
+        self.col_W = col_W
+
+        return out
+    
+    def backward(self, dout: np.ndarray) -> np.ndarray:
+        """Perforn the backward pass of the convolutional layer.
+
+        Args:
+            dout (numpy.ndarray): Gradient of the loss with respect to the output of this layer.
+
+        Returns:
+            numpy.ndarray: Gradient of the loss with respect to the input of this layer.
+        """
+        FN, C, FH, FW = self.W.shape
+        dout = dout.transpose(0, 2, 3, 1).reshape(-1, FN)
+
+        self.db = np.sum(dout, axis=0)
+        self.dW = np.dot(self.col.T, dout)
+        self.dW = self.dW.transpose(1, 0).reshape(FN, C, FH, FW)
+
+        dcol = np.dot(dout, self.col_W.T)
+        dx = col2im(dcol, self.x.shape, FH, FW, self.stride, self.pad)
+
+        return dx
+    
+class Pooling:
+    def __init__(self, pool_h: int, pool_w: int, stride: int=1, pad: int=0):
+        """Initialize a pooling layer.
+
+        Args:
+            pool_h (int): Height of the pooling window.
+            pool_w (int): Width of the pooling window.
+            stride (int, optional): Stride value for pooling. Defaults to 1.
+            pad (int, optional): Padding value for input data. Defaults to 0.
+        """
+        self.pool_h = pool_h
+        self.pool_w = pool_w
+        self.stride = stride
+        self.pad = pad
+
+        self.x = None
+        self.arg_max = None
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """Perform the forward pass of the pooling layer.
+
+        Args:
+            x (numpy.ndarray): Input data of shape (N, C, H, W), where N is the batch size,
+                            C is the number of channels, H is the height, and W is the width.
+
+        Returns:
+            numpy.ndarray: Output of the pooling layer after the forward pass.
+        """
+        N, C, H, W = x.shape
+        out_h = int(1 + (H - self.pool_h) / self.stride)
+        out_w = int(1 + (W - self.pool_w) / self.stride)
+
+        col = im2col(x, self.pool_h, self.pool_w, self.stride, self.pad)
+        col = col.reshape(-1, self.pool_h*self.pool_w)
+
+        arg_max = np.argmax(col, axis=1)
+        out = np.max(col, axis=1)
+        out = out.reshape(N, out_h, out_w, C).transpose(0, 3, 1, 2)
+
+        self.x = x
+        self.arg_max = arg_max
+
+        return out
+    
+    def backward(self, dout: np.ndarray) -> np.ndarray:
+        """Perform the backward pass of the pooling layer.
+
+        Args:
+            dout (numpy.ndarray): Gradient of the loss with respect to the output of this layer.
+
+        Returns:
+            numpy.ndarray: Gradient of the loss with respect to the input of this layer.
+        """
+        dout = dout.transpose(0, 2, 3, 1)
+
+        pool_size = self.pool_h * self.pool_w
+        dmax = np.zeros((dout.size, pool_size))
+        dmax[np.arange(self.arg_max.size), self.arg_max.flatten()] = dout.flatten()
+        dmax = dmax.reshape(dout.shape + (pool_size,))
+
+        dcol = dmax.reshape(dmax.shape[0] * dmax.shape[1] * dmax.shape[2], -1)
+        dx = col2im(dcol, self.x.shape, self.pool_h, self.pool_w, self.stride, self.pad)
+
         return dx

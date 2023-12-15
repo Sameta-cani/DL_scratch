@@ -15,6 +15,76 @@ def shuffle_dataset(x, t):
 
     return x, t
 
+def im2col(input_data: np.ndarray, filter_h: int, filter_w: int, stride: int=1, pad: int=0) -> np.ndarray:
+    """Perform the image to column operation on the input data.
+
+    Args:
+        input_data (numpy.ndarray): Input image data of shape (N, C, H, W), where N is the batch size,
+                                    C is the number of channels, H is the height, and W is the wdith.
+        filter_h (int): Height of the filter (kernel).
+        filter_w (int): Width of the filter (kernel).
+        stride (int, optional): Stride value for filter movement. Defaults to 1.
+        pad (int, optional): Padding value for input data. Defaults to 0.
+
+    Returns:
+        numpy.ndarray: 2D array representing the im2col result with shape (N * out_h * out_w, C * filter_h * filter_w),
+                       where out_h and out_w are determined by the input dimensions, filter size, stride, and padding.
+    """
+    N, C, H, W = input_data.shape
+    out_h = (H + 2*pad - filter_h) // stride + 1
+    out_w = (W + 2*pad - filter_w) // stride + 1
+
+    # Apply padding
+    img = np.pad(input_data, [(0, 0), (0, 0), (pad, pad), (pad, pad)], 'constant')
+    col = np.zeros((N, C, filter_h, filter_w, out_h, out_w))
+
+    for y in range(filter_h):
+        y_max = y + stride*out_h
+        for x in range(filter_w):
+            x_max = x + stride*out_w
+            col[:, :, y, x, :, :] = img[:, :, y:y_max:stride, x:x_max:stride]
+
+    col = col.transpose(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
+    return col
+
+def col2im(col: np.ndarray, input_shape: tuple, filter_h: int, filter_w: int, stride: int=1, pad: int=0) -> np.ndarray:
+    """Perform the col2im operation to reconstruct the original image from the im2col result.
+
+    Args:
+        col (numpy.ndarray): 2D array representing the im2col result.
+        input_shape (tuple): Shape of the original input image (N, C, H, W), where N is the batch size,
+                             C is the number of channels, H is the height, and  W is the width.
+        filter_h (int): Height of the filter (kernel).
+        filter_w (int): Width of the filter (kernel).
+        stride (int, optional): Stride value for filter movement. Defaults to 1.
+        pad (int, optional): Padding value for input data. Defaults to 0.
+
+    Returns:
+        numpy.ndarray: Reconstructed image width shape (N, C, H', W'), where H' and W' are determined by the input
+                       dimensions, filter size, stride, and padding. The result has been adjusted to remove padding.
+    """
+    N, C, H, W = input_shape
+    out_h = (H + 2*pad - filter_h) // stride + 1
+    out_w = (W + 2*pad - filter_w) // stride + 1
+
+    # Reshape and transpose col array
+    col = col.reshape(N, out_h, out_w, C, filter_h, filter_w).transpose(0, 3, 4, 5, 1, 2)
+
+    # Initialize output image with zeros
+    img = np.zeros((N, C, H + 2*pad + stride - 1, W + 2*pad + stride - 1))
+
+    # Perform the col2im operation
+    for y in range(filter_h):
+        y_max = y + stride * out_h
+        for x in range(filter_w):
+            x_max = x + stride * out_w
+            img[:, :, y:y_max:stride, x:x_max:stride] += col[:, :, y, x, :, :]
+
+    # Extract the region without padding
+    img = img[:, :, pad:H + pad, pad:W + pad]
+    
+    return img
+
 def plot_image(i, predictions_array, true_label, images, class_names):
     """
     Display a single image along with its predicted and true labels.
