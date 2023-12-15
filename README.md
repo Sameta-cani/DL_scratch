@@ -5,7 +5,7 @@
 https://github.com/WegraLee/deep-learning-from-scratch/tree/master
 
 ```
-📦DL_scratch
+📦DL_scratch1
  ┣ 📂ch02
  ┃ ┣ 📜and_gate.py
  ┃ ┣ 📜nand_gate.py
