@@ -23,6 +23,7 @@ Project/test file
 total_result.xlsx
 *.hwpx
 ch07/params.pkl
+ch08/deep_convnet_params.pkl
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
